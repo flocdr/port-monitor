@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Puerto Antioquia — Port Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
+    header { background: #1e3a5f; color: #fff; padding: 1.25rem 2rem; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header p { font-size: .8rem; opacity: .7; margin-top: .2rem; }
+    main { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; }
+    .stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: .75rem 1.25rem; flex: 1; }
+    .stat .num { font-size: 1.75rem; font-weight: 700; }
+    .stat .lbl { font-size: .75rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+    .controls { display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    input[type=search] { border: 1px solid #cbd5e1; border-radius: 6px; padding: .45rem .75rem; font-size: .875rem; width: 220px; }
+    .filter-btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; padding: .4rem .9rem; font-size: .8rem; cursor: pointer; }
+    .filter-btn.active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: .85rem; }
+    th { background: #f1f5f9; text-align: left; padding: .65rem 1rem; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #475569; border-bottom: 1px solid #e2e8f0; }
+    td { padding: .6rem 1rem; border-bottom: 1px solid #f1f5f9; }
+    tr:last-child td { border-bottom: none; }
+    tr[data-section]:hover td { background: #f8fafc; }
+    .badge { display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .72rem; font-weight: 600; text-transform: uppercase; }
+    tr.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Puerto Antioquia — Port Monitor</h1>
+    <p>Last updated: 2026-05-26 · 63 events recorded</p>
+  </header>
+  <main>
+    <div class="stats">
+      <div class="stat"><div class="num" style="color:#3b82f6">14</div><div class="lbl">Announced</div></div>
+      <div class="stat"><div class="num" style="color:#f59e0b">2</div><div class="lbl">Berthed</div></div>
+      <div class="stat"><div class="num" style="color:#10b981">47</div><div class="lbl">Departed</div></div>
+    </div>
+    <div class="controls">
+      <input type="search" id="search" placeholder="Search vessel or voyage…">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="announced">Announced</button>
+      <button class="filter-btn" data-filter="berthed">Berthed</button>
+      <button class="filter-btn" data-filter="departed">Departed</button>
+    </div>
+    <table id="table">
+      <thead><tr>
+        <th>Voyage</th><th>Vessel</th><th>Section</th>
+        <th>ETA</th><th>ATD</th><th>Agency</th><th>Captured</th>
+      </tr></thead>
+      <tbody><tr data-section="departed">
+      <td>MSSA-0008</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>30/4/2026 - 11:00</td>
+      <td>30/04/2026 - 23:07</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>CMVO-0002</td>
+      <td>CMA CGM VOLTAIRE</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>30/05/2026 -01:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>POBR-0002</td>
+      <td>POLAR BRASIL</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>30/05/2026 - 09:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>PVIC-0001</td>
+      <td>PACIFIC VICTORY</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>30/04/2026 - 09:30</td>
+      <td>—</td>
+      <td>LBH</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CMFI-0002</td>
+      <td>CMA CGM FIORDLAND</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>30/03/2026 - 02:00</td>
+      <td>30/03/2026 - 12:18</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>TINA-0001</td>
+      <td>TINA I</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>29/05/2026 - 18:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>GARD-0003</td>
+      <td>GARDINER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>29/04/2026 - 17:00</td>
+      <td>30/04/2026 - 10:42</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>MSSA-0013</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>28/05/2026 - 15:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>ALES-0001</td>
+      <td>ALESSIA</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>28/03/2026 - 16:00</td>
+      <td>28/03/2026 - 21:42</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>MMLI-0001</td>
+      <td>MAERSK MONTE LINZOR</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>27/05/2026 - 17:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>1RRP2N1MA</td>
+      <td>CMA CGM MERCANTOUR</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>27/04/2026 - 04:00</td>
+      <td>27/04/2026 - 13:18</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CMVO-0001</td>
+      <td>CMA CGM VOLTAIRE</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>27/03/2026 - 17:00</td>
+      <td>28/03/2026 - 04:45</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0004</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>26/03/2026 - 15:00</td>
+      <td>27/03/2026 - 00:12</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>APNJ-0001</td>
+      <td>APL NEW JERSEY</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>25/4/2026 -14:00</td>
+      <td>26/4/2026 - 00:30</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCKS-0005</td>
+      <td>CMA CGM KHAO SOK</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>25/05/2026 - 04:00</td>
+      <td>25/05/2026 - 17:50</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCRA-0002</td>
+      <td>CMA CGM RABELAIS</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>24/05/2026 - 00:30</td>
+      <td>24/05/2026 -09:54</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0008</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>23/4/2026 - 15:00</td>
+      <td>24/04/2026 - 02:38</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>POME-0005</td>
+      <td>POLAR MEXICO</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>23/05/2026 - 09:00</td>
+      <td>23/05/2026 - 21:18</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>GARD-0002</td>
+      <td>GARDINER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>22/4/2026 - 17:00</td>
+      <td>23/4/2026 - 12:18</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCBO-0002</td>
+      <td>CMA CGM BOLDNESS</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>22/05/2026 - 23:00</td>
+      <td>23/05/2026 - 06:18</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0012</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>21/05/2026 - 15:00</td>
+      <td>21/05/2026 - 23:40</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>OSHM-0001</td>
+      <td>OMISHIMA</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>21/04/2026 - 03:42</td>
+      <td>24/04/2026 - 11:48</td>
+      <td>LBH</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CMDO-0003</td>
+      <td>CMA CGM DOLOMITES</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>20/4/2026 - 11:30</td>
+      <td>20/4/2026 - 22:48</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MMVE-0001</td>
+      <td>MAERSK MONTE VERDE</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>20/05/2026 - 17:00</td>
+      <td>21/05/26 07:04</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="berthed">
+      <td>EDRC-0001</td>
+      <td>ENDURANCE SW</td>
+      <td><span class="badge" style="background:#f59e0b;color:#fff">berthed</span></td>
+      <td>19/05/2026 - 14:30</td>
+      <td>—</td>
+      <td>NAVES</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCFR-0002</td>
+      <td>CMA CGM FRANCOISE SAGAN</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>18/4/2026 -14:00</td>
+      <td>19/04/2026 -3:54</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCWI-0002</td>
+      <td>CMA CGM WISDOM</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>18/4/2026 - 05:00</td>
+      <td>18/4/2026 - 13:08</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CMFI-0003</td>
+      <td>CMA CGM FIORDLAND</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>18/05/2026 - 07:00</td>
+      <td>18/05/2026 - 20:40</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0006</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>16/4/2026 -15:00</td>
+      <td>17/4/2026 - 03:56</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>POCR-0006</td>
+      <td>POLAR COSTA RICA</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>16/05/2026 - 09:00</td>
+      <td>16/05/2026 -21:24</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>GARD-0001</td>
+      <td>GARDINER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>15/4/2026  - 17:00</td>
+      <td>16/4/2026 - 13:42</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCFB-0002</td>
+      <td>CMA CGM FORT BOURBON</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>15/05/2026 - 23:00</td>
+      <td>16/05/2026 - 08:45</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0011</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>14/05/2026 - 15:00</td>
+      <td>14/05/2026 - 21:44</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CMKG-0002</td>
+      <td>CMA CGM KRUGER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>13/4/2026 - 05:00</td>
+      <td>13/4/2026 - 17:28</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>GARD-0005</td>
+      <td>GARDINER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>13/05/2026 - 17:00</td>
+      <td>14/05/2026 - 8:00</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>ZYUL-0001</td>
+      <td>ZY YULONG</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>12/4/2026 - 14:02</td>
+      <td>19/4/2026 - 10:04</td>
+      <td>LBH</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CBAI-0002</td>
+      <td>CMA CGM BAIKAL</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>11/05/2026 - 10:50</td>
+      <td>11/05/2026 - 21:48</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCSA-0001</td>
+      <td>CMA CGM SAMBHAR</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>11/04/2026 - 12:00</td>
+      <td>12/04/2026 - 15.30</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>MMPA-0001</td>
+      <td>MAERSK MONTE PASCOAL</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>10/06/2026 - 06:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>SWAN-0002</td>
+      <td>SWANSEA</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>09/05/2026 - 22:00</td>
+      <td>10/05/2026 - 06:30</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>POBR-0004</td>
+      <td>POLAR BRASIL</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>09/05/2026 - 09:00</td>
+      <td>09/05/2026 - 21:30</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>EXEM-0002</td>
+      <td>CMA CGM EXEMPLARITY</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>09/05/2026 - 02:00</td>
+      <td>09/05/2026 - 10:30</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0006</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>09/04/2026 - 15:00</td>
+      <td>10/04/2026 - 01:25</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>CMDO-0004</td>
+      <td>CMA CGM DOLOMITES</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>08/06/2026 - 04:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0010</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>07/05/2026 - 15:00</td>
+      <td>07/05/2026 - 22:42</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>POCR-0007</td>
+      <td>POLAR COSTA RICA</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>06/06/2026 - 09:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>GARD-0004</td>
+      <td>GARDINER</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>06/05/2026 - 17:00</td>
+      <td>07/05/2026 - 12:18</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCKS-0001</td>
+      <td>CMA CGM KHAO SOK</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>06/04/2026 - 06:00</td>
+      <td>06/04/2026 - 15:57</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>CCBW-0002</td>
+      <td>CMA CGM BETTER WAYS</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>05/06/2026 - 23:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>CCPU-0001</td>
+      <td>CMA CGM PUCCINI</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>05/06/2026 - 18:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>HASC-0001</td>
+      <td>HANS SCHULTE</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>05/04/2026 - 00:00</td>
+      <td>05/04/2026 - 12:12</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>MSCA-0001</td>
+      <td>MSC CALDIRIS III</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>04/06/2026 - 15:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCZI-0002</td>
+      <td>CMA CGM ZIGARO</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>04/05/2026 - 17:00</td>
+      <td>05/05/2026 - 03:10</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>MMRO-0001</td>
+      <td>MAERSK MONTE ROSA</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>03/06/2026 - 17:00</td>
+      <td>—</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CARD-0002</td>
+      <td>CARDIFF</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>03/05/2026 - 02:00</td>
+      <td>03/05/2026 - 16:42</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCBW-0001</td>
+      <td>CMA CGM BETTER WAYS</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>03/04/2026 - 23:00</td>
+      <td>04/04/2026 - 06:30</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>CCEX-0002</td>
+      <td>CMA CGM EXCELLENCE</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>02/05/2026 - 19:30</td>
+      <td>03/05/2026 - 02:05</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MNES-0001</td>
+      <td>MAERSK NESTON</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>02/05/2026 - 09:00</td>
+      <td>02/05/2026 -18:40</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>MSSA-0005</td>
+      <td>MSC SAMIRA III</td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td>02/04/2026 - 15:00</td>
+      <td>03/04/2026 - 02:00</td>
+      <td>TURBADUANA</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>CMKG-0003</td>
+      <td>CMA CGM KRUGER</td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td>01/06/2026 - 04:00</td>
+      <td>—</td>
+      <td>AGP</td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="announced">
+      <td>No results for this search</td>
+      <td></td>
+      <td><span class="badge" style="background:#3b82f6;color:#fff">announced</span></td>
+      <td></td>
+      <td>—</td>
+      <td></td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="berthed">
+      <td>No results for this search</td>
+      <td></td>
+      <td><span class="badge" style="background:#f59e0b;color:#fff">berthed</span></td>
+      <td></td>
+      <td>—</td>
+      <td></td>
+      <td>2026-05-26</td>
+    </tr>
+<tr data-section="departed">
+      <td>No results for this search</td>
+      <td></td>
+      <td><span class="badge" style="background:#10b981;color:#fff">departed</span></td>
+      <td></td>
+      <td>—</td>
+      <td></td>
+      <td>2026-05-26</td>
+    </tr></tbody>
+    </table>
+  </main>
+  <script>
+    const rows = Array.from(document.querySelectorAll('#table tbody tr'));
+    let activeFilter = 'all';
+
+    function applyFilters() {
+      const q = document.getElementById('search').value.toLowerCase();
+      for (const row of rows) {
+        const matchSection = activeFilter === 'all' || row.dataset.section === activeFilter;
+        const matchSearch = !q || row.textContent.toLowerCase().includes(q);
+        row.classList.toggle('hidden', !(matchSection && matchSearch));
+      }
+    }
+
+    document.getElementById('search').addEventListener('input', applyFilters);
+
+    for (const btn of document.querySelectorAll('.filter-btn')) {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        applyFilters();
+      });
+    }
+  </script>
+</body>
+</html>
