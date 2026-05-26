@@ -113,6 +113,5 @@ export function generateDashboard() {
 </body>
 </html>`;
 
-  mkdirSync('public', { recursive: true });
-  writeFileSync('public/index.html', html);
+  writeFileSync('index.html', html);
 }
