@@ -7,6 +7,7 @@ export function generateDashboard() {
   departed.sort((a, b) => b.eta.localeCompare(a.eta));
 
   const updatedAt = new Date().toISOString().slice(0, 10);
+  const sourceUrl = 'https://puertoantioquia.com.co/en/situacion';
   const json = JSON.stringify(departed);
 
   const html = `<!DOCTYPE html>
@@ -33,6 +34,10 @@ export function generateDashboard() {
     input[type=search] { border: 1px solid #cbd5e1; border-radius: 6px; padding: .45rem .75rem; font-size: .875rem; width: 240px; }
     table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: .85rem; }
     th { background: #f1f5f9; text-align: left; padding: .65rem 1rem; font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #475569; border-bottom: 1px solid #e2e8f0; }
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable::after { content: '↕'; margin-left: .35rem; color: #94a3b8; font-size: .68rem; }
+    th.sortable.sort-asc::after { content: '↑'; color: #1e3a5f; }
+    th.sortable.sort-desc::after { content: '↓'; color: #1e3a5f; }
     td { padding: .6rem 1rem; border-bottom: 1px solid #f1f5f9; }
     tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: #f8fafc; }
@@ -50,6 +55,8 @@ export function generateDashboard() {
     .rank-table td { padding: .6rem 1rem; border-bottom: 1px solid #f1f5f9; }
     .rank-table tr:last-child td { border-bottom: none; }
     .pill { display: inline-block; background: #e0f2fe; color: #0369a1; border-radius: 99px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; }
+    .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 8px; padding: .75rem 1rem; margin: .5rem 0 1rem; font-size: .875rem; line-height: 1.4; }
+    .notice a { color: #92400e; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -62,6 +69,11 @@ export function generateDashboard() {
     <button class="tab-btn" data-tab="stats">Statistics</button>
   </nav>
   <main>
+    <div class="notice">
+      ⚠️ This dashboard is a quick monitoring aid, not an official source. Please verify operational decisions against the original data on
+      <a href="${sourceUrl}" target="_blank" rel="noopener noreferrer">Puerto Antioquia's site</a>.
+    </div>
+
     <!-- HISTORY -->
     <div id="tab-history" class="tab-panel active">
       <div class="controls" style="margin-top:.5rem">
@@ -69,9 +81,9 @@ export function generateDashboard() {
       </div>
       <table id="hist-table">
         <thead><tr>
-          <th>Voyage</th><th>Service</th><th>Vessel</th>
-          <th>ETA</th><th>ETD</th><th>ATA</th><th>ATD</th>
-          <th>Agency</th><th>Remarks</th><th>Captured</th>
+          <th data-sort="text" data-key="voyage_code">Voyage</th><th data-sort="text" data-key="service">Service</th><th data-sort="text" data-key="vessel">Vessel</th>
+          <th data-sort="date" data-key="eta">ETA</th><th data-sort="date" data-key="etd">ETD</th><th data-sort="date" data-key="ata">ATA</th><th data-sort="date" data-key="atd">ATD</th>
+          <th data-sort="text" data-key="agency">Agency</th><th data-sort="text" data-key="remarks">Remarks</th><th data-sort="date" data-key="scraped_at">Captured</th>
         </tr></thead>
         <tbody id="hist-body"></tbody>
       </table>
@@ -84,12 +96,12 @@ export function generateDashboard() {
       <div class="chart-wrap"><svg id="chart" height="180"></svg></div>
       <div class="section-title">Vessels by number of port calls</div>
       <table class="rank-table" id="vessel-table">
-        <thead><tr><th>#</th><th>Vessel</th><th>Calls</th><th>Services</th></tr></thead>
+        <thead><tr><th data-sort="number">#</th><th data-sort="text">Vessel</th><th data-sort="number">Calls</th><th data-sort="text">Services</th></tr></thead>
         <tbody id="vessel-body"></tbody>
       </table>
       <div class="section-title">Voyages with multiple calls</div>
       <table class="rank-table" id="voyage-table">
-        <thead><tr><th>#</th><th>Voyage</th><th>Vessel</th><th>Calls</th></tr></thead>
+        <thead><tr><th data-sort="number">#</th><th data-sort="text">Voyage</th><th data-sort="text">Vessel</th><th data-sort="number">Calls</th></tr></thead>
         <tbody id="voyage-body"></tbody>
       </table>
     </div>
@@ -101,8 +113,12 @@ export function generateDashboard() {
     // ── helpers ──────────────────────────────────────────────
     function parseDate(str) {
       if (!str) return null;
-      const m = str.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
-      return m ? new Date(\`\${m[3]}-\${m[2]}-\${m[1]}\`) : null;
+      const s = String(str).trim();
+      const dmy = s.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+      if (dmy) return new Date(\`\${dmy[3]}-\${dmy[2]}-\${dmy[1]}T00:00:00\`);
+      const iso = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+      if (iso) return new Date(\`\${iso[1]}-\${iso[2]}-\${iso[3]}T00:00:00\`);
+      return null;
     }
 
     function isoWeek(date) {
@@ -130,27 +146,77 @@ export function generateDashboard() {
       });
     });
 
+    function compareValues(a, b, type, dir) {
+      let av = a ?? '';
+      let bv = b ?? '';
+      if (type === 'date') {
+        av = parseDate(av)?.getTime() ?? -Infinity;
+        bv = parseDate(bv)?.getTime() ?? -Infinity;
+      } else if (type === 'number') {
+        av = Number(String(av).replace(/[^0-9.-]/g, '')) || 0;
+        bv = Number(String(bv).replace(/[^0-9.-]/g, '')) || 0;
+      } else {
+        av = String(av).toLocaleLowerCase();
+        bv = String(bv).toLocaleLowerCase();
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    }
+
+    function initDomTableSort(table) {
+      const ths = [...table.querySelectorAll('thead th[data-sort]')];
+      ths.forEach((th, index) => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+          const dir = th.classList.contains('sort-asc') ? -1 : 1;
+          ths.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+          th.classList.add(dir === 1 ? 'sort-asc' : 'sort-desc');
+          const rows = [...table.tBodies[0].rows];
+          rows.sort((ra, rb) => compareValues(ra.cells[index]?.textContent, rb.cells[index]?.textContent, th.dataset.sort, dir));
+          rows.forEach(row => table.tBodies[0].appendChild(row));
+        });
+      });
+    }
+
     // ── history tab ──────────────────────────────────────────
     const histBody = document.getElementById('hist-body');
-    histBody.innerHTML = DATA.map(r => \`<tr>
-      <td>\${esc(r.voyage_code)}</td>
-      <td>\${esc(r.service)}</td>
-      <td style="font-weight:600">\${esc(r.vessel)}</td>
-      <td>\${esc(r.eta)}</td>
-      <td>\${esc(r.etd)}</td>
-      <td>\${esc(r.ata)}</td>
-      <td>\${esc(r.atd)}</td>
-      <td>\${esc(r.agency)}</td>
-      <td>\${esc(r.remarks)}</td>
-      <td>\${esc(r.scraped_at)}</td>
-    </tr>\`).join('');
+    const searchInput = document.getElementById('search');
+    let historySort = { key: 'eta', type: 'date', dir: -1 };
 
-    document.getElementById('search').addEventListener('input', function() {
-      const q = this.value.toLowerCase();
-      histBody.querySelectorAll('tr').forEach(row => {
-        row.classList.toggle('hidden', q && !row.textContent.toLowerCase().includes(q));
+    function renderHistory() {
+      const q = searchInput.value.toLowerCase();
+      const rows = [...DATA]
+        .filter(r => !q || Object.values(r).join(' ').toLowerCase().includes(q))
+        .sort((a, b) => compareValues(a[historySort.key], b[historySort.key], historySort.type, historySort.dir));
+      histBody.innerHTML = rows.map(r => \`<tr>
+        <td>\${esc(r.voyage_code)}</td>
+        <td>\${esc(r.service)}</td>
+        <td style="font-weight:600">\${esc(r.vessel)}</td>
+        <td>\${esc(r.eta)}</td>
+        <td>\${esc(r.etd)}</td>
+        <td>\${esc(r.ata)}</td>
+        <td>\${esc(r.atd)}</td>
+        <td>\${esc(r.agency)}</td>
+        <td>\${esc(r.remarks)}</td>
+        <td>\${esc(r.scraped_at)}</td>
+      </tr>\`).join('');
+    }
+
+    document.querySelectorAll('#hist-table th[data-key]').forEach(th => {
+      th.classList.add('sortable');
+      if (th.dataset.key === historySort.key) th.classList.add('sort-desc');
+      th.addEventListener('click', () => {
+        const sameColumn = historySort.key === th.dataset.key;
+        historySort = { key: th.dataset.key, type: th.dataset.sort, dir: sameColumn ? -historySort.dir : 1 };
+        document.querySelectorAll('#hist-table th').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+        th.classList.add(historySort.dir === 1 ? 'sort-asc' : 'sort-desc');
+        renderHistory();
       });
     });
+
+    searchInput.addEventListener('input', renderHistory);
+    renderHistory();
 
     // ── stats tab (lazy render) ───────────────────────────────
     let statsRendered = false;
@@ -216,6 +282,9 @@ export function generateDashboard() {
           <td><span class="pill">\${d.calls}</span></td>
         </tr>\`).join('');
       }
+
+      initDomTableSort(document.getElementById('vessel-table'));
+      initDomTableSort(document.getElementById('voyage-table'));
     }
 
     function renderChart(weeks, counts) {
