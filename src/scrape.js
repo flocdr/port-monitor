@@ -23,7 +23,7 @@ export async function scrape() {
       const cells = $(row).find('td');
       const get = (i) => $(cells[i]).text().trim();
       const voyageCode = get(0);
-      if (!voyageCode || /no results/i.test(voyageCode)) return;
+      if (!voyageCode || /^no (results|records)/i.test(voyageCode)) return;
 
       events.push({
         voyage_code: voyageCode,

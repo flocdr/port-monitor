@@ -2,7 +2,7 @@ import { writeFileSync } from 'fs';
 import { readAll } from './csv.js';
 
 export function generateDashboard() {
-  const allRows = readAll().filter((r) => r.voyage_code && !/no results/i.test(r.voyage_code));
+  const allRows = readAll().filter((r) => r.voyage_code && !/^no (results|records)/i.test(r.voyage_code));
   allRows.sort((a, b) => b.scraped_at.localeCompare(a.scraped_at) || b.eta.localeCompare(a.eta));
 
   const updatedAt = new Date().toISOString().slice(0, 10);
@@ -43,8 +43,16 @@ export function generateDashboard() {
     tr.hidden { display: none; }
 
     /* Stats */
-    .cards { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-groups { display: grid; gap: 1rem; margin: .5rem 0 1.5rem; }
+    .stat-group { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; }
+    .stat-group-title { font-size: .78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .75rem; }
+    .cards { display: flex; gap: 1rem; flex-wrap: wrap; }
     .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: .85rem 1.25rem; min-width: 140px; }
+    .status-group .card { background: #eff6ff; border-color: #bfdbfe; }
+    .status-group .card .num { color: #1d4ed8; }
+    .coverage-group { background: #f8fafc; }
+    .coverage-group .card { min-width: 130px; padding: .7rem 1rem; }
+    .coverage-group .card .num { font-size: 1.45rem; color: #475569; }
     .card .num { font-size: 2rem; font-weight: 700; color: #1e3a5f; line-height: 1; }
     .card .lbl { font-size: .72rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin-top: .3rem; }
     .section-title { font-size: .9rem; font-weight: 600; color: #1e293b; margin: 1.5rem 0 .75rem; }
@@ -90,9 +98,18 @@ export function generateDashboard() {
 
     <!-- STATS -->
     <div id="tab-stats" class="tab-panel">
-      <div class="cards" id="stat-cards" style="margin-top:.5rem"></div>
+      <div class="stat-groups">
+        <section class="stat-group status-group">
+          <div class="stat-group-title">Current known status</div>
+          <div class="cards" id="status-cards"></div>
+        </section>
+        <section class="stat-group coverage-group">
+          <div class="stat-group-title">Dataset coverage</div>
+          <div class="cards" id="coverage-cards"></div>
+        </section>
+      </div>
       <div class="section-title">Weekly activity by ETA (all statuses, unique port calls)</div>
-      <div class="chart-wrap"><svg id="chart" height="180"></svg></div>
+      <div class="chart-wrap"><svg id="chart" height="210"></svg></div>
       <div class="section-title">Vessels by number of port calls</div>
       <table class="rank-table" id="vessel-table">
         <thead><tr><th data-sort="number">#</th><th data-sort="text">Vessel</th><th data-sort="number">Calls</th><th data-sort="text">Services</th></tr></thead>
@@ -131,6 +148,36 @@ export function generateDashboard() {
 
     function etaDateKey(str) {
       return formatDateKey(parseDate(str)) || String(str ?? '').trim();
+    }
+
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function startOfIsoWeek(date) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return d;
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function formatDateRange(start, end, includeYear = true) {
+      const suffix = includeYear ? ', ' + end.getFullYear() : '';
+      if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+        return MONTHS[start.getMonth()] + ' ' + start.getDate() + '–' + end.getDate() + suffix;
+      }
+      if (start.getFullYear() === end.getFullYear()) {
+        return MONTHS[start.getMonth()] + ' ' + start.getDate() + '–' + MONTHS[end.getMonth()] + ' ' + end.getDate() + suffix;
+      }
+      return MONTHS[start.getMonth()] + ' ' + start.getDate() + ', ' + start.getFullYear() + '–' + MONTHS[end.getMonth()] + ' ' + end.getDate() + ', ' + end.getFullYear();
+    }
+
+    function describePortCall(r) {
+      return (r.service || 'Unknown service') + ' · ' + (r.vessel || 'Unknown vessel') + ' · ' + r.voyage_code + ' · ' + r.section + ' · ETA ' + r.eta;
     }
 
     function isoWeek(date) {
@@ -283,15 +330,20 @@ export function generateDashboard() {
       const vessels = new Set(PORT_CALLS.map(r => r.vessel).filter(Boolean));
       const voyages = new Set(PORT_CALLS.map(r => r.voyage_code).filter(Boolean));
 
-      document.getElementById('stat-cards').innerHTML = [
-        [PORT_CALLS.length, 'Port calls shown'],
-        [totalEvents, 'Observed events'],
+      const cardHtml = (items) => items
+        .map(([n, l]) => \`<div class="card"><div class="num">\${n}</div><div class="lbl">\${l}</div></div>\`)
+        .join('');
+      document.getElementById('status-cards').innerHTML = cardHtml([
         [announced.length, 'Announced'],
         [berthed.length, 'Berthed'],
         [departed.length, 'Departed'],
+      ]);
+      document.getElementById('coverage-cards').innerHTML = cardHtml([
+        [PORT_CALLS.length, 'Port calls shown'],
+        [totalEvents, 'Observed events'],
         [vessels.size, 'Unique vessels'],
         [voyages.size, 'Unique voyage codes'],
-      ].map(([n, l]) => \`<div class="card"><div class="num">\${n}</div><div class="lbl">\${l}</div></div>\`).join('');
+      ]);
 
       // weekly chart: summarized port calls, using the latest known ETA date in each group
       const weekMap = {};
@@ -299,11 +351,16 @@ export function generateDashboard() {
         const d = parseDate(r.eta);
         if (!d) return;
         const w = isoWeek(d);
-        weekMap[w] = (weekMap[w] ?? 0) + 1;
+        if (!weekMap[w]) {
+          const start = startOfIsoWeek(d);
+          weekMap[w] = { count: 0, start, end: addDays(start, 6), calls: [] };
+        }
+        weekMap[w].count++;
+        weekMap[w].calls.push(r);
       });
       const weeks = Object.keys(weekMap).sort();
-      const counts = weeks.map(w => weekMap[w]);
-      renderChart(weeks, counts);
+      const buckets = weeks.map(w => weekMap[w]);
+      renderChart(weeks, buckets);
 
       // vessel ranking
       const vesselMap = {};
@@ -348,17 +405,19 @@ export function generateDashboard() {
       initDomTableSort(document.getElementById('voyage-table'));
     }
 
-    function renderChart(weeks, counts) {
+    function renderChart(weeks, buckets) {
       const svg = document.getElementById('chart');
-      const W = Math.max(svg.parentElement.clientWidth - 40, Math.max(weeks.length, 1) * 36);
-      const H = 180;
-      const pad = { top: 10, right: 10, bottom: 40, left: 32 };
+      const counts = buckets.map(b => b.count);
+      const W = Math.max(svg.parentElement.clientWidth - 40, Math.max(weeks.length, 1) * 52);
+      const H = 210;
+      const pad = { top: 10, right: 10, bottom: 62, left: 32 };
       const chartW = W - pad.left - pad.right;
       const chartH = H - pad.top - pad.bottom;
       const max = Math.max(...counts, 1);
-      const barW = Math.max(Math.floor(chartW / Math.max(weeks.length, 1)) - 4, 4);
+      const barW = Math.max(Math.floor(chartW / Math.max(weeks.length, 1)) - 6, 4);
 
       svg.setAttribute('width', W);
+      svg.setAttribute('height', H);
       svg.setAttribute('viewBox', \`0 0 \${W} \${H}\`);
 
       let out = \`<g transform="translate(\${pad.left},\${pad.top})">\`;
@@ -374,14 +433,24 @@ export function generateDashboard() {
 
       // bars + x labels
       weeks.forEach((w, i) => {
+        const bucket = buckets[i];
         const x = i * (chartW / Math.max(weeks.length, 1)) + (chartW / Math.max(weeks.length, 1) - barW) / 2;
-        const barH = (counts[i] / max) * chartH;
+        const barH = (bucket.count / max) * chartH;
         const y = chartH - barH;
+        const details = bucket.calls
+          .slice()
+          .sort((a, b) => compareValues(a.eta, b.eta, 'date', 1))
+          .slice(0, 12)
+          .map(describePortCall);
+        const more = bucket.calls.length > details.length ? ['… +' + (bucket.calls.length - details.length) + ' more'] : [];
+        const title = [w + ' (' + formatDateRange(bucket.start, bucket.end) + '): ' + bucket.count + ' port calls', ...details, ...more].join('\\n');
         out += \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${barH}" fill="#3b82f6" rx="2" opacity=".85">
-          <title>\${w}: \${counts[i]} port calls</title></rect>\`;
+          <title>\${esc(title)}</title></rect>\`;
         if (weeks.length <= 24 || i % 2 === 0) {
-          const label = w.replace(/^\\d{4}-/, '');
-          out += \`<text x="\${x + barW / 2}" y="\${chartH + 16}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="rotate(-35,\${x + barW / 2},\${chartH + 16})">\${label}</text>\`;
+          const weekLabel = w.replace(/^\\d{4}-/, '');
+          const rangeLabel = formatDateRange(bucket.start, bucket.end, false);
+          const labelX = x + barW / 2;
+          out += \`<text x="\${labelX}" y="\${chartH + 16}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="rotate(-35,\${labelX},\${chartH + 16})"><tspan x="\${labelX}" dy="0">\${weekLabel}</tspan><tspan x="\${labelX}" dy="11">\${rangeLabel}</tspan></text>\`;
         }
       });
 
