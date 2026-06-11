@@ -22,8 +22,11 @@ export async function scrape() {
     card.find('tbody tr').each((_, row) => {
       const cells = $(row).find('td');
       const get = (i) => $(cells[i]).text().trim();
+      const voyageCode = get(0);
+      if (!voyageCode || /no results/i.test(voyageCode)) return;
+
       events.push({
-        voyage_code: get(0),
+        voyage_code: voyageCode,
         service: get(1),
         operation: get(2),
         vessel: get(3),

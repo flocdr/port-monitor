@@ -2,13 +2,12 @@ import { writeFileSync } from 'fs';
 import { readAll } from './csv.js';
 
 export function generateDashboard() {
-  const allRows = readAll();
-  const departed = allRows.filter((r) => r.section === 'departed');
-  departed.sort((a, b) => b.eta.localeCompare(a.eta));
+  const allRows = readAll().filter((r) => r.voyage_code && !/no results/i.test(r.voyage_code));
+  allRows.sort((a, b) => b.scraped_at.localeCompare(a.scraped_at) || b.eta.localeCompare(a.eta));
 
   const updatedAt = new Date().toISOString().slice(0, 10);
   const sourceUrl = 'https://puertoantioquia.com.co/en/situacion';
-  const json = JSON.stringify(departed);
+  const json = JSON.stringify(allRows);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -81,9 +80,9 @@ export function generateDashboard() {
       </div>
       <table id="hist-table">
         <thead><tr>
-          <th data-sort="text" data-key="voyage_code">Voyage</th><th data-sort="text" data-key="service">Service</th><th data-sort="text" data-key="vessel">Vessel</th>
+          <th data-sort="text" data-key="section">Status</th><th data-sort="text" data-key="voyage_code">Voyage</th><th data-sort="text" data-key="service">Service</th><th data-sort="text" data-key="vessel">Vessel</th>
           <th data-sort="date" data-key="eta">ETA</th><th data-sort="date" data-key="etd">ETD</th><th data-sort="date" data-key="ata">ATA</th><th data-sort="date" data-key="atd">ATD</th>
-          <th data-sort="text" data-key="agency">Agency</th><th data-sort="text" data-key="remarks">Remarks</th><th data-sort="date" data-key="scraped_at">Captured</th>
+          <th data-sort="text" data-key="agency">Agency</th><th data-sort="text" data-key="remarks">Remarks</th><th data-sort="date" data-key="scraped_at">Last seen</th><th data-sort="number" data-key="event_count">Events</th>
         </tr></thead>
         <tbody id="hist-body"></tbody>
       </table>
@@ -92,7 +91,7 @@ export function generateDashboard() {
     <!-- STATS -->
     <div id="tab-stats" class="tab-panel">
       <div class="cards" id="stat-cards" style="margin-top:.5rem"></div>
-      <div class="section-title">Weekly activity (departed vessels)</div>
+      <div class="section-title">Weekly activity by ETA (all statuses, unique port calls)</div>
       <div class="chart-wrap"><svg id="chart" height="180"></svg></div>
       <div class="section-title">Vessels by number of port calls</div>
       <table class="rank-table" id="vessel-table">
@@ -114,11 +113,24 @@ export function generateDashboard() {
     function parseDate(str) {
       if (!str) return null;
       const s = String(str).trim();
-      const dmy = s.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
-      if (dmy) return new Date(\`\${dmy[3]}-\${dmy[2]}-\${dmy[1]}T00:00:00\`);
+      const dmy = s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})(?:\\s*-\\s*(\\d{1,2}):(\\d{2}))?/);
+      if (dmy) {
+        const hh = (dmy[4] ?? '0').padStart(2, '0');
+        const mm = dmy[5] ?? '00';
+        return new Date(\`\${dmy[3]}-\${dmy[2].padStart(2, '0')}-\${dmy[1].padStart(2, '0')}T\${hh}:\${mm}:00\`);
+      }
       const iso = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
       if (iso) return new Date(\`\${iso[1]}-\${iso[2]}-\${iso[3]}T00:00:00\`);
       return null;
+    }
+
+    function formatDateKey(date) {
+      if (!date) return '';
+      return \`\${date.getFullYear()}-\${String(date.getMonth() + 1).padStart(2, '0')}-\${String(date.getDate()).padStart(2, '0')}\`;
+    }
+
+    function etaDateKey(str) {
+      return formatDateKey(parseDate(str)) || String(str ?? '').trim();
     }
 
     function isoWeek(date) {
@@ -179,17 +191,56 @@ export function generateDashboard() {
       });
     }
 
+    // ── port call summaries ──────────────────────────────────
+    const STATUS_RANK = { announced: 1, berthed: 2, departed: 3 };
+
+    function statusRank(section) {
+      return STATUS_RANK[section] ?? 0;
+    }
+
+    function portCallKey(r) {
+      return [r.voyage_code, r.vessel, etaDateKey(r.eta)].join('|');
+    }
+
+    function shouldUseAsRepresentative(current, candidate) {
+      const rankDiff = statusRank(candidate.section) - statusRank(current.section);
+      if (rankDiff !== 0) return rankDiff > 0;
+      return compareValues(candidate.scraped_at, current.scraped_at, 'date', 1) > 0;
+    }
+
+    function summarizePortCalls(events) {
+      const groups = new Map();
+      events.forEach(event => {
+        const key = portCallKey(event);
+        const existing = groups.get(key);
+        if (!existing) {
+          groups.set(key, { ...event, first_seen: event.scraped_at, last_seen: event.scraped_at, event_count: 1 });
+          return;
+        }
+
+        const firstSeen = compareValues(event.scraped_at, existing.first_seen, 'date', 1) < 0 ? event.scraped_at : existing.first_seen;
+        const lastSeen = compareValues(event.scraped_at, existing.last_seen, 'date', 1) > 0 ? event.scraped_at : existing.last_seen;
+        const eventCount = existing.event_count + 1;
+        const representative = shouldUseAsRepresentative(existing, event) ? { ...existing, ...event } : existing;
+        groups.set(key, { ...representative, first_seen: firstSeen, last_seen: lastSeen, scraped_at: lastSeen, event_count: eventCount });
+      });
+      return [...groups.values()];
+    }
+
+    const PORT_CALLS = summarizePortCalls(DATA);
+
     // ── history tab ──────────────────────────────────────────
     const histBody = document.getElementById('hist-body');
     const searchInput = document.getElementById('search');
-    let historySort = { key: 'eta', type: 'date', dir: -1 };
+    let historySort = { key: 'scraped_at', type: 'date', dir: -1 };
 
     function renderHistory() {
       const q = searchInput.value.toLowerCase();
-      const rows = [...DATA]
+      const rows = [...PORT_CALLS]
         .filter(r => !q || Object.values(r).join(' ').toLowerCase().includes(q))
         .sort((a, b) => compareValues(a[historySort.key], b[historySort.key], historySort.type, historySort.dir));
       histBody.innerHTML = rows.map(r => \`<tr>
+        <td>\${esc(r.section)}</td>
         <td>\${esc(r.voyage_code)}</td>
         <td>\${esc(r.service)}</td>
         <td style="font-weight:600">\${esc(r.vessel)}</td>
@@ -200,6 +251,7 @@ export function generateDashboard() {
         <td>\${esc(r.agency)}</td>
         <td>\${esc(r.remarks)}</td>
         <td>\${esc(r.scraped_at)}</td>
+        <td>\${esc(r.event_count)}</td>
       </tr>\`).join('');
     }
 
@@ -224,19 +276,26 @@ export function generateDashboard() {
       if (statsRendered) return;
       statsRendered = true;
 
-      const total = DATA.length;
-      const vessels = new Set(DATA.map(r => r.vessel));
-      const voyages = new Set(DATA.map(r => r.voyage_code));
+      const totalEvents = DATA.length;
+      const announced = PORT_CALLS.filter(r => r.section === 'announced');
+      const berthed = PORT_CALLS.filter(r => r.section === 'berthed');
+      const departed = PORT_CALLS.filter(r => r.section === 'departed');
+      const vessels = new Set(PORT_CALLS.map(r => r.vessel).filter(Boolean));
+      const voyages = new Set(PORT_CALLS.map(r => r.voyage_code).filter(Boolean));
 
       document.getElementById('stat-cards').innerHTML = [
-        [total, 'Total port calls'],
+        [PORT_CALLS.length, 'Port calls shown'],
+        [totalEvents, 'Observed events'],
+        [announced.length, 'Announced'],
+        [berthed.length, 'Berthed'],
+        [departed.length, 'Departed'],
         [vessels.size, 'Unique vessels'],
         [voyages.size, 'Unique voyage codes'],
       ].map(([n, l]) => \`<div class="card"><div class="num">\${n}</div><div class="lbl">\${l}</div></div>\`).join('');
 
-      // weekly chart
+      // weekly chart: summarized port calls, using the latest known ETA date in each group
       const weekMap = {};
-      DATA.forEach(r => {
+      PORT_CALLS.forEach(r => {
         const d = parseDate(r.eta);
         if (!d) return;
         const w = isoWeek(d);
@@ -248,13 +307,14 @@ export function generateDashboard() {
 
       // vessel ranking
       const vesselMap = {};
-      DATA.forEach(r => {
+      PORT_CALLS.forEach(r => {
+        if (!r.vessel) return;
         if (!vesselMap[r.vessel]) vesselMap[r.vessel] = { calls: 0, services: new Set() };
         vesselMap[r.vessel].calls++;
         vesselMap[r.vessel].services.add(r.service);
       });
       const vesselRank = Object.entries(vesselMap)
-        .sort((a, b) => b[1].calls - a[1].calls);
+        .sort((a, b) => b[1].calls - a[1].calls || a[0].localeCompare(b[0]));
       document.getElementById('vessel-body').innerHTML = vesselRank.map(([name, d], i) => \`<tr>
         <td style="color:#94a3b8">\${i + 1}</td>
         <td style="font-weight:600">\${esc(name)}</td>
@@ -264,13 +324,14 @@ export function generateDashboard() {
 
       // voyage ranking (multi-call only)
       const voyageMap = {};
-      DATA.forEach(r => {
-        if (!voyageMap[r.voyage_code]) voyageMap[r.voyage_code] = { calls: 0, vessel: r.vessel };
+      PORT_CALLS.forEach(r => {
+        if (!voyageMap[r.voyage_code]) voyageMap[r.voyage_code] = { calls: 0, vessels: new Set() };
         voyageMap[r.voyage_code].calls++;
+        if (r.vessel) voyageMap[r.voyage_code].vessels.add(r.vessel);
       });
       const voyageRank = Object.entries(voyageMap)
         .filter(([, d]) => d.calls > 1)
-        .sort((a, b) => b[1].calls - a[1].calls);
+        .sort((a, b) => b[1].calls - a[1].calls || a[0].localeCompare(b[0]));
       const voyageBody = document.getElementById('voyage-body');
       if (voyageRank.length === 0) {
         voyageBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;text-align:center;padding:1.5rem">No voyage with multiple calls yet</td></tr>';
@@ -278,7 +339,7 @@ export function generateDashboard() {
         voyageBody.innerHTML = voyageRank.map(([code, d], i) => \`<tr>
           <td style="color:#94a3b8">\${i + 1}</td>
           <td>\${esc(code)}</td>
-          <td style="font-weight:600">\${esc(d.vessel)}</td>
+          <td style="font-weight:600">\${esc([...d.vessels].join(', '))}</td>
           <td><span class="pill">\${d.calls}</span></td>
         </tr>\`).join('');
       }
@@ -289,13 +350,13 @@ export function generateDashboard() {
 
     function renderChart(weeks, counts) {
       const svg = document.getElementById('chart');
-      const W = Math.max(svg.parentElement.clientWidth - 40, weeks.length * 36);
+      const W = Math.max(svg.parentElement.clientWidth - 40, Math.max(weeks.length, 1) * 36);
       const H = 180;
       const pad = { top: 10, right: 10, bottom: 40, left: 32 };
       const chartW = W - pad.left - pad.right;
       const chartH = H - pad.top - pad.bottom;
       const max = Math.max(...counts, 1);
-      const barW = Math.max(Math.floor(chartW / weeks.length) - 4, 4);
+      const barW = Math.max(Math.floor(chartW / Math.max(weeks.length, 1)) - 4, 4);
 
       svg.setAttribute('width', W);
       svg.setAttribute('viewBox', \`0 0 \${W} \${H}\`);
@@ -313,11 +374,11 @@ export function generateDashboard() {
 
       // bars + x labels
       weeks.forEach((w, i) => {
-        const x = i * (chartW / weeks.length) + (chartW / weeks.length - barW) / 2;
+        const x = i * (chartW / Math.max(weeks.length, 1)) + (chartW / Math.max(weeks.length, 1) - barW) / 2;
         const barH = (counts[i] / max) * chartH;
         const y = chartH - barH;
         out += \`<rect x="\${x}" y="\${y}" width="\${barW}" height="\${barH}" fill="#3b82f6" rx="2" opacity=".85">
-          <title>\${w}: \${counts[i]} vessels</title></rect>\`;
+          <title>\${w}: \${counts[i]} port calls</title></rect>\`;
         if (weeks.length <= 24 || i % 2 === 0) {
           const label = w.replace(/^\\d{4}-/, '');
           out += \`<text x="\${x + barW / 2}" y="\${chartH + 16}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="rotate(-35,\${x + barW / 2},\${chartH + 16})">\${label}</text>\`;
